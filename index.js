@@ -34,7 +34,7 @@ const runSQL = (sql_query) => {
   });
 };
 
-const get_keybase_topic_message_count = async (guild, team_name, topic_name) => {
+const get_keybase_topic_message_count = async (team_name, topic_name) => {
   let tmp_query = `
   SELECT COUNT(*) AS msg_count FROM team_messages_t 
     WHERE 
@@ -126,19 +126,78 @@ const create_channel_for_topic = async (guild, team_name, topic_name) => {
 }
 
 const sync_messages_for_topic = async (guild, team_name, topic_name) => {
-  console.log("Working On")
-  // Get number of keybase messages that need to sync
+  console.log(`Running sync_messages_for_topic for ${team_name} , ${topic_name}`)
+  // Get number of keybase messages that need to be synced
+  let num_keybase_messages = await get_keybase_topic_message_count(team_name, topic_name)
   // Check number of logs for this specific channel
-  // Loop for sending remaining messages
+  tmp_query = `
+  SELECT count(*) as messages_synced FROM discord_message_logs_t 
+  WHERE 
+      keybase_team = '${team_name}'
+      AND keybase_topic = '${topic_name}'
+  LIMIT 40`
+  tmp_result = await runSQL(tmp_query)
+  var messages_synced = tmp_result[0].messages_synced
+  if(messages_synced == num_keybase_messages){
+    console.log(`Messages for ${team_name}.${topic_name} were already synced`)
+    return false
+  }
+  // Get channel_id
+  console.log("sync_messages_for_topic, Getting Channel ID")
+  tmp_query = `
+  SELECT * FROM discord_channel_logs_t 
+  WHERE 
+      keybase_team = '${team_name}'
+      AND keybase_topic = '${topic_name}'
+  LIMIT 40`
+  tmp_result = await runSQL(tmp_query)
+  if(tmp_result.length == 0){
+    console.log(`Can't find channel_id for ${team_name}.${topic_name}`)
+    return false
+  }
+  channel_id = tmp_result[0].discord_channel_id
+  console.log(`channel_id = ${channel_id}`)
+  const channel = guild.channels.cache.get(channel_id);
+  for(; messages_synced < num_keybase_messages; messages_synced++){
+    // Find message
+    console.log(`messages_synced = ${messages_synced}`)
+    tmp_query = `
+    SELECT
+      json_extract(message_json,'$.msg.sender.username')   as sender,
+      json_extract(message_json,'$.msg.content.text.body') as body,
+      json_extract(message_json,'$.msg.sent_at_ms')        as timestamp
+    FROM team_messages_t
+    WHERE 
+      team_name         = '${team_name}'
+      AND topic_name    = '${topic_name}'
+      AND json_extract(message_json,'$.msg.content.type') = 'text'
+    ORDER BY
+      json_extract(message_json,'$.msg.sent_at') ASC
+    LIMIT 1
+    OFFSET ${messages_synced}`
+    let result = await runSQL(tmp_query)
+    console.log(result)
     // Send message
-    // Log message
-    // delay 1000
+    let msg_response = await channel.send(`From: ${result[0].sender} at ${result[0].timestamp}\n${result[0].body}`);
+    // Log message to database
+    tmp_query = `
+    INSERT INTO discord_message_logs_t(
+      keybase_team,
+      keybase_topic,
+      keybase_msg_id,
+      discord_msg_id
+      )
+    VALUES ( '${team_name}', '${topic_name}', 
+      ${messages_synced}, '${msg_response.id}')`
+    tmp_result = await runSQL(tmp_query)    
+    await delay(1000)
+  }
 }
 
 const sync_topic = async (guild, team_name, topic_name) => {
   await create_category_for_team( guild, team_name)
   await create_channel_for_topic( guild, team_name, topic_name)
-  // await sync_messages_for_topic(  guild, team_name, topic_name)
+  await sync_messages_for_topic(  guild, team_name, topic_name)
 }
 const sync_team = async (team_name) => {
   console.log("Working On")
@@ -163,7 +222,7 @@ CREATE TABLE IF NOT EXISTS
 		keybase_topic           VARCHAR,
 		keybase_conversation_id VARCHAR,
 		keybase_msg_id          INT,
-		discord_channel         VARCHAR,
+		discord_channel_id      VARCHAR,
 		discord_msg_id          VARCHAR
 	);`
 
