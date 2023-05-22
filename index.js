@@ -182,11 +182,20 @@ const sync_messages_for_topic = async (guild, team_name, topic_name) => {
     let result = await runSQL(tmp_query)
     // Send message
     
+    
     // let member = guild.members.cache.get(client.user.id)
+    // let changed_avatar = null
+    // if(messages_synced%2 == 0){
+    //   changed_avatar = await client.user.setAvatar('./discord-avatar-512-HWD4J.png')
+    // }
+    // else {
+    //   changed_avatar = await client.user.setAvatar('./discord-avatar-512-WQ0IZ.png')
+    // }
+    // console.log("changed_avatar")
+    // console.log(changed_avatar)
     // let changed_nickname = await member.setNickname(result[0].sender);
-    // console.log(`Setting nickname ${changed_nickname}`)
-
-    delay(3000)
+    console.log(`Setting nickname ${changed_nickname}`)
+    delay(1000)
     let msg_response = await channel.send(`From: ${result[0].sender} at ${new Date(result[0].timestamp).toString()}\n${result[0].body}`);
     // Log message to database
     tmp_query = `
