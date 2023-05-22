@@ -4,9 +4,9 @@ const sqlite3 = require('sqlite3').verbose();
 const db = new sqlite3.Database('keybase_export.sqlite');
 
 // Function to perform the SELECT query
-const selectFromTable = () => {
+const selectFromTable = (sql_query) => {
   return new Promise((resolve, reject) => {
-    db.all('SELECT * FROM teams_t', (err, row) => {
+    db.all(sql_query, (err, row) => {
       if (err) {
         reject(err);
       } else {
@@ -20,7 +20,7 @@ const selectFromTable = () => {
 const main = async () => {
   try {
     // Perform the SELECT query and store the result in a variable
-    const result = await selectFromTable();
+    const result = await selectFromTable('SELECT * FROM teams_t');
     console.log(result); // Use the result as needed
   } catch (error) {
     console.error(error.message);
