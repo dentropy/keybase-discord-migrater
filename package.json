@@ -1,0 +1,22 @@
+{
+  "name": "keybase-discord-migrater",
+  "version": "0.0.1",
+  "description": "Replay messages from keybase in a discord guild",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dentropy/keybase-discord-migrater.git"
+  },
+  "author": "Paul Mullins",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/dentropy/keybase-discord-migrater/issues"
+  },
+  "homepage": "https://github.com/dentropy/keybase-discord-migrater#readme",
+  "dependencies": {
+    "discord.js": "^14.11.0"
+  }
+}
