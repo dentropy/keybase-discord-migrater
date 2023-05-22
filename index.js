@@ -57,10 +57,8 @@ const create_category_for_team = async (guild, team_name) => {
       AND discord_channel_type = 4
   LIMIT 40`
   tmp_result = await runSQL(tmp_query)  
-  console.log("tmp")
-  console.log(tmp_result)
-  console.log(tmp_result.length)
   if (tmp_result.length != 0){
+    console.log(`Category for ${team_name} was already added to discord guild`)
     return false
   } 
   // Create category on discord
@@ -103,6 +101,7 @@ const create_channel_for_topic = async (guild, team_name, topic_name) => {
   LIMIT 40`
   tmp_result = await runSQL(tmp_query)
   if (tmp_result.length != 0){
+    console.log(`Channel for ${team_name}.${topic_name} was already added to discord guild`)
     return false
   } 
   // Create category on discord
@@ -114,13 +113,15 @@ const create_channel_for_topic = async (guild, team_name, topic_name) => {
   });
   // Log to database
   tmp_query = `
-  INSERT INTO discord_channel_logs_t
-  SET
-    keybase_team  = '${team_name}',
-    keybase_topic = '${topic_name}',
-    discord_category_id = ${category_id},
-    discord_channel_type = 0
-    discord_channel_id = ${channel.id}`
+  INSERT INTO discord_channel_logs_t(
+    keybase_team,
+    keybase_topic,
+    discord_category_id,
+    discord_channel_type,
+    discord_channel_id
+    )
+  VALUES ( '${team_name}', '${topic_name}', 
+    '${category_id}', 0, '${channel.id}')`
   tmp_result = await runSQL(tmp_query)
 }
 
@@ -136,8 +137,8 @@ const sync_messages_for_topic = async (guild, team_name, topic_name) => {
 
 const sync_topic = async (guild, team_name, topic_name) => {
   await create_category_for_team( guild, team_name)
-  // await create_channel_for_topic( team_name, topic_name)
-  // await sync_messages_for_topic(  team_name, topic_name)
+  await create_channel_for_topic( guild, team_name, topic_name)
+  // await sync_messages_for_topic(  guild, team_name, topic_name)
 }
 const sync_team = async (team_name) => {
   console.log("Working On")
