@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/dentropy/keybase-discord-migrater#readme",
   "dependencies": {
-    "discord.js": "^14.11.0"
+    "discord.js": "^14.11.0",
+    "sqlite3": "^5.1.6"
   }
 }
