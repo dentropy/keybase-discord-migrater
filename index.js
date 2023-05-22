@@ -20,6 +20,7 @@ const sqlite3 = require('sqlite3').verbose();
 
 // Open a database connection
 const db = new sqlite3.Database('keybase_export.sqlite');
+process.env.TZ='UTC'
 
 // Function to perform the SELECT query
 const runSQL = (sql_query) => {
@@ -178,7 +179,7 @@ const sync_messages_for_topic = async (guild, team_name, topic_name) => {
     let result = await runSQL(tmp_query)
     console.log(result)
     // Send message
-    let msg_response = await channel.send(`From: ${result[0].sender} at ${result[0].timestamp}\n${result[0].body}`);
+    let msg_response = await channel.send(`From: ${result[0].sender} at ${new Date(result[0].timestamp).toString()}\n${result[0].body}`);
     // Log message to database
     tmp_query = `
     INSERT INTO discord_message_logs_t(
@@ -274,8 +275,8 @@ client.once('ready', async () => {
   // console.log(text_channel)
   try {
     // Perform the SELECT query and store the result in a variable
-    // await runSQL('DROP TABLE discord_channel_logs_t;')
-    // await runSQL('DROP TABLE discord_message_logs_t;')
+    await runSQL('DROP TABLE discord_channel_logs_t;')
+    await runSQL('DROP TABLE discord_message_logs_t;')
     await runSQL(create_discord_channel_logs_t);
     await runSQL(create_discord_message_logs_t);
     // const result = await runSQL('SELECT * FROM teams_t');
