@@ -9,7 +9,10 @@ const client = new Client({
 		GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.GuildMessageReactions,
-    GatewayIntentBits.GuildEmojisAndStickers
+    GatewayIntentBits.GuildEmojisAndStickers,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.AutoModerationExecution,
+    GatewayIntentBits.AutoModerationConfiguration
 	],
 });
 client.login(config.BOT_TOKEN);
@@ -177,8 +180,13 @@ const sync_messages_for_topic = async (guild, team_name, topic_name) => {
     LIMIT 1
     OFFSET ${messages_synced}`
     let result = await runSQL(tmp_query)
-    console.log(result)
     // Send message
+    
+    // let member = guild.members.cache.get(client.user.id)
+    // let changed_nickname = await member.setNickname(result[0].sender);
+    // console.log(`Setting nickname ${changed_nickname}`)
+
+    delay(3000)
     let msg_response = await channel.send(`From: ${result[0].sender} at ${new Date(result[0].timestamp).toString()}\n${result[0].body}`);
     // Log message to database
     tmp_query = `
@@ -191,7 +199,7 @@ const sync_messages_for_topic = async (guild, team_name, topic_name) => {
     VALUES ( '${team_name}', '${topic_name}', 
       ${messages_synced}, '${msg_response.id}')`
     tmp_result = await runSQL(tmp_query)    
-    await delay(1000)
+    await delay(4000)
   }
 }
 
