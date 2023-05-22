@@ -1,3 +1,21 @@
+const { Client, GatewayIntentBits, ChannelType } = require('discord.js');
+const config = require("./config.json");
+
+const client = new Client({
+  intents: [
+		GatewayIntentBits.Guilds,
+		GatewayIntentBits.GuildMessages,
+		GatewayIntentBits.MessageContent,
+		GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.GuildMessageReactions,
+    GatewayIntentBits.GuildEmojisAndStickers
+	],
+});
+client.login(config.BOT_TOKEN);
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
+
+
 const sqlite3 = require('sqlite3').verbose();
 
 // Open a database connection
@@ -16,7 +34,7 @@ const runSQL = (sql_query) => {
   });
 };
 
-const get_keybase_topic_message_count = async (team_name, topic_name) => {
+const get_keybase_topic_message_count = async (guild, team_name, topic_name) => {
   let tmp_query = `
   SELECT COUNT(*) AS msg_count FROM team_messages_t 
     WHERE 
@@ -29,42 +47,84 @@ const get_keybase_topic_message_count = async (team_name, topic_name) => {
 }
 
 
-const create_category_for_team = async (team_name, topic_name) => {
-  console.log("Working On")
+const create_category_for_team = async (guild, team_name) => {
+  console.log(`Running create_category_for_team for ${team_name}`)
   // Check log for category
   tmp_query = `
-  SELECT * AS check FROM discord_channel_logs_t 
+  SELECT * FROM discord_channel_logs_t 
   WHERE 
-      team_name = '${team_name}'
-      AND topic_name = '${topic_name}'
+      keybase_team = '${team_name}'
       AND discord_channel_type = 4
+  LIMIT 40`
+  tmp_result = await runSQL(tmp_query)  
+  console.log("tmp")
+  console.log(tmp_result)
+  console.log(tmp_result.length)
+  if (tmp_result.length != 0){
+    return false
+  } 
+  // Create category on discord
+  console.log(tmp_result)
+  let category = await guild.channels.create({
+    name: team_name,
+    type: ChannelType.GuildCategory,
+  });
+  // Log to database
+  tmp_query = `
+  INSERT INTO discord_channel_logs_t(keybase_team,discord_category_id,discord_channel_type)
+  VALUES ( '${team_name}', '${category.id}', 4)`
+  tmp_result = await runSQL(tmp_query)
+}
+
+const create_channel_for_topic = async (guild, team_name, topic_name) => {
+  // Check if text channel category was already created
+  // Create text channel under category
+  // Log that text channel was created in logs
+  console.log(`Running create_channel_for_topic for ${team_name} , ${topic_name}`)
+  // Get category_id in database from logs
+  tmp_query = `
+  SELECT * FROM discord_channel_logs_t 
+  WHERE 
+      keybase_team = '${team_name}'
+      AND discord_channel_type = 4
+  LIMIT 40`
+  tmp_result = await runSQL(tmp_query)
+  if (tmp_result.length == 0){
+    return false // #TODO
+  } 
+  category_id = tmp_result[0].discord_category_id
+  // Check if text channel category was already created
+  tmp_query = `
+  SELECT * FROM discord_channel_logs_t 
+  WHERE 
+      keybase_team = '${team_name}'
+      AND keybase_topic = '${topic_name}'
+      AND discord_channel_type = 0
   LIMIT 40`
   tmp_result = await runSQL(tmp_query)
   if (tmp_result.length != 0){
     return false
   } 
   // Create category on discord
-
-
+  console.log(tmp_result)
+  let channel = await guild.channels.create({
+    name: topic_name,
+    type: ChannelType.GuildText,
+    parent: category_id
+  });
   // Log to database
-  tmp_insert_query = `
+  tmp_query = `
   INSERT INTO discord_channel_logs_t
   SET
-    team_name  = '${team_name}',
-    topic_name = '${topic_name}',
-    discord_category = 'test',
-    discord_channel_type = 4`
+    keybase_team  = '${team_name}',
+    keybase_topic = '${topic_name}',
+    discord_category_id = ${category_id},
+    discord_channel_type = 0
+    discord_channel_id = ${channel.id}`
+  tmp_result = await runSQL(tmp_query)
 }
 
-const create_channel_for_topic = async (team_name, topic_name) => {
-  console.log("Working On")
-  // Get category_id in database from logs
-  // Check if text channel category was already created
-  // Create text channel under category
-  // Log that text channel was created in logs
-}
-
-const sync_messages_for_topic = async (team_name, topic_name) => {
+const sync_messages_for_topic = async (guild, team_name, topic_name) => {
   console.log("Working On")
   // Get number of keybase messages that need to sync
   // Check number of logs for this specific channel
@@ -74,8 +134,8 @@ const sync_messages_for_topic = async (team_name, topic_name) => {
     // delay 1000
 }
 
-const sync_topic = async (team_name, topic_name) => {
-  await create_category_for_team( team_name, topic_name)
+const sync_topic = async (guild, team_name, topic_name) => {
+  await create_category_for_team( guild, team_name)
   // await create_channel_for_topic( team_name, topic_name)
   // await sync_messages_for_topic(  team_name, topic_name)
 }
@@ -87,11 +147,12 @@ const sync_team = async (team_name) => {
 let create_discord_channel_logs_t = `
 CREATE TABLE IF NOT EXISTS
 	discord_channel_logs_t(
-		keybase_team            VARCHAR,
-		keybase_topic           VARCHAR,
-		keybase_conversation_id VARCHAR,
-		discord_category_id     VARCHAR,
-		discord_channel_type    INT
+		keybase_team               VARCHAR,
+		keybase_topic              VARCHAR,
+		keybase_conversation_id    VARCHAR,
+		discord_category_id        VARCHAR,
+    discord_channel_id         VARCHAR,
+		discord_channel_type       INT
 	);`
 
 let = create_discord_message_logs_t = `
@@ -108,9 +169,53 @@ CREATE TABLE IF NOT EXISTS
 
 
 // Main function using async/await
-const main = async () => {
+// const main = async () => {
+//   try {
+//     // Perform the SELECT query and store the result in a variable
+//     await runSQL(create_discord_channel_logs_t);
+//     await runSQL(create_discord_message_logs_t);
+//     // const result = await runSQL('SELECT * FROM teams_t');
+//     // let team_messages = await get_keybase_topic_message_count('dentropydaemon', 'ux')
+//     // console.log(team_messages)
+
+//     let team_name  = 'dentropydaemon'
+//     let topic_name = 'ux'
+//     sync_topic(team_name, topic_name)
+
+
+
+//   } catch (error) {
+//     console.error(error.message);
+//   } finally {
+//     // Close the database connection
+//     db.close();
+//   }
+// };
+
+
+client.once('ready', async () => {
+  console.log('Bot is ready!');
+
+  // Replace 'GUILD_ID' with the ID of the guild you want to retrieve the categories from
+  const guildId = config.guildId;
+  const guild = client.guilds.cache.get(guildId);
+
+  // let category = await guild.channels.create({
+  //   name: "test category",
+  //   type: ChannelType.GuildCategory,
+  // });
+  // console.log(category)
+  // await delay(3000)
+  // let text_channel = await guild.channels.create({
+  //   name: "test text channel",
+  //   type: ChannelType.GuildText,
+  //   parent: category.id
+  // });
+  // console.log(text_channel)
   try {
     // Perform the SELECT query and store the result in a variable
+    // await runSQL('DROP TABLE discord_channel_logs_t;')
+    // await runSQL('DROP TABLE discord_message_logs_t;')
     await runSQL(create_discord_channel_logs_t);
     await runSQL(create_discord_message_logs_t);
     // const result = await runSQL('SELECT * FROM teams_t');
@@ -119,7 +224,7 @@ const main = async () => {
 
     let team_name  = 'dentropydaemon'
     let topic_name = 'ux'
-    sync_topic(team_name, topic_name)
+    await sync_topic(guild, team_name, topic_name)
 
 
 
@@ -129,7 +234,4 @@ const main = async () => {
     // Close the database connection
     db.close();
   }
-};
-
-// Call the main function
-main();
+});

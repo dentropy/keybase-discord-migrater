@@ -1,6 +1,7 @@
 # sqlite databases
 *db
 *sqlite
+config.json
 
 # Logs
 logs
