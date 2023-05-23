@@ -182,7 +182,7 @@ const sync_messages_for_topic = async (guild, team_name, topic_name) => {
     let result = await runSQL(tmp_query)
     // Send message
     
-    
+
     // let member = guild.members.cache.get(client.user.id)
     // let changed_avatar = null
     // if(messages_synced%2 == 0){
@@ -194,8 +194,7 @@ const sync_messages_for_topic = async (guild, team_name, topic_name) => {
     // console.log("changed_avatar")
     // console.log(changed_avatar)
     // let changed_nickname = await member.setNickname(result[0].sender);
-    console.log(`Setting nickname ${changed_nickname}`)
-    delay(1000)
+    // console.log(`Setting nickname ${changed_nickname}`)
     let msg_response = await channel.send(`From: ${result[0].sender} at ${new Date(result[0].timestamp).toString()}\n${result[0].body}`);
     // Log message to database
     tmp_query = `
@@ -217,8 +216,16 @@ const sync_topic = async (guild, team_name, topic_name) => {
   await create_channel_for_topic( guild, team_name, topic_name)
   await sync_messages_for_topic(  guild, team_name, topic_name)
 }
-const sync_team = async (team_name) => {
-  console.log("Working On")
+const sync_team = async (guild, team_name) => {
+  let team_topics = await runSQL(`
+    SELECT distinct(topic_name) 
+    FROM team_messages_t 
+    WHERE team_name = '${team_name}'
+  `)
+  for(var j = 0; j < team_topics.length; j++){
+    console.log(`Migrating ${team_name}.${team_topics[j].topic_name}`)
+    await sync_topic(guild, team_name, team_topics[j].topic_name)
+  }
 }
 
 // https://discord.com/developers/docs/resources/channel#channel-object-channel-types
@@ -299,10 +306,16 @@ client.once('ready', async () => {
     // const result = await runSQL('SELECT * FROM teams_t');
     // let team_messages = await get_keybase_topic_message_count('dentropydaemon', 'ux')
     // console.log(team_messages)
+    
+    await sync_team(guild, 'complexadventure.april2023')
 
-    let team_name  = 'dentropydaemon'
-    let topic_name = 'ux'
-    await sync_topic(guild, team_name, topic_name)
+    
+    // This is for syncing everything complexity related
+    // let keybase_teams = await runSQL(`SELECT * FROM teams_t where team_name like '%complex%'`)
+    // for(var i = 0; i < keybase_teams.length; i++){
+    //   console.log(keybase_teams[i].team_name)
+    //   await sync_team(guild, keybase_teams[i].team_name)
+    // }
 
 
 

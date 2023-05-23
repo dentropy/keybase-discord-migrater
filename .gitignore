@@ -2,6 +2,7 @@
 *db
 *sqlite
 config.json
+*out
 
 # Logs
 logs
